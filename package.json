@@ -1,18 +1,18 @@
 {
   "name": "mail-rotator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "node server.js",
-    "build": "next build",
-    "start": "NODE_ENV=production node server.js"
+    "dev": "next dev",
+    "build": "node scripts/migrate.js && next build",
+    "start": "next start",
+    "db:migrate": "node scripts/migrate.js"
   },
   "dependencies": {
     "next": "14.2.35",
+    "nodemailer": "6.9.14",
+    "pg": "8.13.1",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "socket.io": "4.7.5",
-    "socket.io-client": "4.7.5",
-    "nodemailer": "6.9.14"
+    "react-dom": "18.3.1"
   }
 }

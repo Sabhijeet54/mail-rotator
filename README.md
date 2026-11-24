@@ -1,42 +1,59 @@
-# Mail Rotator (demo)
+# Mail Rotator
 
-Next.js + Socket.IO + Nodemailer. Sends email through the user's **own** Gmail / Outlook /
-iCloud / Yahoo / Zoho / custom-SMTP accounts, rotating one email per account with a delay
-between sends so each account gets rest time.
+Next.js (App Router) + Postgres + Nodemailer. Sends email through your **own** SMTP mailboxes
+(Gmail / Outlook / iCloud / Yahoo / Zoho / custom), rotating recipients round-robin across them and
+never exceeding a mailbox's daily cap. No custom server or socket.io, so it deploys to Vercel as-is.
 
-## Run
+## Run locally
 
 ```bash
 npm install
-npm run dev
-# open http://localhost:3000
+createdb mail_rotator            # any Postgres 13+
+cp .env.example .env.local       # then fill in the values
+npm run db:migrate
+npm run dev                      # http://localhost:3000
 ```
 
-Demo login: `admin` / `admin123` (change it in `app/page.js`).
+## Deploy to Vercel
 
-## How it works
+1. Create a Postgres database (Vercel Storage → Neon, or neon.tech / Supabase). Copy its **pooled** connection string.
+2. Import the repo in Vercel. Under Settings → Environment Variables add:
+   - `DATABASE_URL` — the pooled connection string
+   - `ENCRYPTION_KEY` — long random string (`openssl rand -hex 32`). Never change it later: stored SMTP passwords are encrypted with it.
+   - `APP_USER` / `APP_PASSWORD` — login for the site (HTTP Basic Auth). The app refuses to run in production without them.
+   - `CRON_SECRET` — random string; Vercel Cron sends it to `/api/cron/process-queue`.
+3. Deploy. `npm run build` applies `db/schema.sql` automatically before building.
 
-1. **Add accounts** — pick a provider, enter the email + **app password**. The server does a real
-   SMTP `verify()` before saving, so a bad login is rejected immediately. Add as many as you want.
-2. **Compose** — subject, message, optional attachments.
-3. **Recipients** — paste any text; emails are auto-extracted and de-duplicated.
-4. **Gap** — set a min/max seconds gap (e.g. 10–30). A random gap is used between each send.
-5. **Start** — recipient #1 goes from account #1, #2 from account #2, and so on; after the last
-   account it loops back to the first. Live status shows each send in real time.
+## How sending works (no socket.io)
 
-Per-account "daily limit" is optional (0 = no limit). When an account hits its limit the rotation
-skips it.
+- Starting a send writes one row per recipient to `outbound_messages`, with `scheduled_at` spaced by the gap.
+- While the Campaigns page is open it calls `POST /api/queue/tick` every 2 s; each tick sends what is due
+  (up to ~20 s of work) and the page polls `/api/campaigns/:id/progress` for the live log.
+- If the page is closed, messages stay queued in Postgres and continue when it's reopened, or when the
+  cron runs. `vercel.json` runs the cron once a day (the Hobby plan limit); on Pro change the schedule to
+  `* * * * *` for fully background sending.
+- If the assigned mailbox is paused or at its cap, another mailbox of the same send is used; if all are full
+  the message waits an hour and retries (caps reset daily).
+- Addresses in the `suppressions` table are skipped automatically.
 
-## App passwords (quick links)
+## Structure
 
-- Gmail: myaccount.google.com → Security → App passwords (needs 2-step verification)
-- iCloud: appleid.apple.com → Sign-In and Security → App-Specific Passwords
-- Yahoo: account security → Generate app password
-- Outlook: Microsoft is disabling basic-auth SMTP on many accounts; if it fails, that account needs
-  the Graph/OAuth route instead.
+```
+app/                   pages (sidebar layout) + app/api/* route handlers
+components/            Sidebar, Drawer (right slide-over), shared UI
+db/schema.sql          all tables: mailboxes, contacts, campaigns, sequences, inbox, templates,
+                       suppressions, events, scheduled_jobs, activity_logs, settings
+lib/mailboxes.js       add / import / test / update / remove mailboxes
+lib/queue.js           enqueue, round-robin, daily caps, send loop
+middleware.js          password gate
+```
+
+Built so far: Mailbox Accounts (full), Quick send on Campaigns, Dashboard. Other sidebar modules are placeholders;
+their tables already exist.
 
 ## Notes
 
-- Accounts are kept in memory only; restarting the server clears them.
-- Only send to people who expect your mail, from your own accounts, and include a way to opt out.
-  Bulk unsolicited mail will get the accounts (and the app) blocked regardless of rotation.
+- Use **app passwords**. Gmail / iCloud / Yahoo need 2-step verification first. Outlook may have SMTP basic-auth disabled.
+- Attachments are limited to 3 MB total (Vercel request body limit is 4.5 MB).
+- Only send to people who expect your mail and include a way to opt out. Rotation doesn't stop providers from blocking
+  accounts that send unsolicited bulk mail.
