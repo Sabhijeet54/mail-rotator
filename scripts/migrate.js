@@ -8,7 +8,7 @@ const { Client } = require('pg');
 loadEnvConfig(process.cwd());
 
 (async () => {
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!url) {
     console.log('[migrate] DATABASE_URL not set — skipping.');
     return;
