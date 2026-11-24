@@ -1,11 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { extractEmails } from '../../lib/extract';
+import { extractRecipients } from '../../lib/extract';
+import { renderTemplate, recipientVars, splitSubjects } from '../../lib/render';
 import { api, PageHeader } from '../../components/ui';
 
 // Quick send = the original mail-send feature, now running on the DB queue instead of socket.io.
 // The full multi-step campaign builder (contacts, filters, personalization) comes next.
+const DRAFT_KEY = 'mr.compose.draft.v1';
+function loadDraft() {
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') || {}; } catch { return {}; }
+}
+
 export default function CampaignsPage() {
   const [mailboxes, setMailboxes] = useState([]);
   const [picked, setPicked] = useState(null); // null = all
@@ -24,7 +30,30 @@ export default function CampaignsPage() {
   const logRef = useRef(null);
   const lastLog = useRef(0);
 
-  const found = extractEmails(recipientsText);
+  const people = extractRecipients(recipientsText);
+  const found = people;
+  const named = people.filter((p) => p.name).length;
+  const subjects = splitSubjects(subject);
+  const sample = people[0] ? recipientVars(people[0]) : null;
+
+  // Keep the draft when you click to another page and come back (or reload).
+  const restored = useRef(false);
+  useEffect(() => {
+    const d = loadDraft();
+    if (d.subject != null) setSubject(d.subject);
+    if (d.body != null) setBody(d.body);
+    if (d.format) setFormat(d.format);
+    if (d.recipientsText != null) setRecipientsText(d.recipientsText);
+    if (d.delayMin != null) setDelayMin(d.delayMin);
+    if (d.delayMax != null) setDelayMax(d.delayMax);
+    restored.current = true;
+  }, []);
+  useEffect(() => {
+    if (!restored.current) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ subject, body, format, recipientsText, delayMin, delayMax }));
+    } catch {}
+  }, [subject, body, format, recipientsText, delayMin, delayMax]);
   const usable = mailboxes.filter((m) => m.connection === 'connected' && !m.paused);
   const chosen = picked ?? new Set(usable.map((m) => m.id));
   const running = progress.campaign?.status === 'running';
@@ -76,6 +105,7 @@ export default function CampaignsPage() {
     setErr('');
     if (!chosen.size) return setErr('Select at least one connected mailbox (add/test one in Mailbox Accounts).');
     if (!found.length) return setErr('No recipient emails detected.');
+    if (!subjects.length) return setErr('Write at least one subject.');
     const size = files.reduce((a, f) => a + f.size, 0);
     if (size > 3 * 1024 * 1024) return setErr('Attachments must be under 3 MB in total (Vercel request limit).');
     try {
@@ -109,7 +139,12 @@ export default function CampaignsPage() {
 
       <div className="panel">
         <h2>Compose</h2>
-        <div className="field"><label>Subject</label><input value={subject} onChange={(e) => setSubject(e.target.value)} /></div>
+        <div className="field">
+          <label>Subjects — one per line ({subjects.length}). Each recipient gets one, in rotation.</label>
+          <textarea rows={3} value={subject} onChange={(e) => setSubject(e.target.value)}
+                    placeholder={'Quick question, {first_name}\nHi {first_name}, about your role at …'} />
+          <div className="hint">Personalize subject and message with <code>{'{name}'}</code> <code>{'{first_name}'}</code> <code>{'{email}'}</code>. Fallback if a name is missing: <code>{'{first_name|there}'}</code></div>
+        </div>
         <div className="field">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label>Message</label>
@@ -121,10 +156,13 @@ export default function CampaignsPage() {
           <textarea rows={6} value={body} onChange={(e) => setBody(e.target.value)} />
         </div>
         <div className="field">
-          <label>Recipients (paste anything — emails are auto-extracted; suppressed addresses are skipped)</label>
+          <label>Recipients — one per line, name optional: <code>Rahul Sharma, rahul@x.com</code> (Excel/Sheets paste works too)</label>
           <textarea rows={5} value={recipientsText} onChange={(e) => setRecipientsText(e.target.value)}
-                    placeholder="a@x.com, b@y.com  some text  c@z.com ..." />
-          <div className="count">{found.length} email(s) detected</div>
+                    placeholder={'Rahul Sharma, rahul@x.com\nPriya <priya@y.com>\nc@z.com'} />
+          <div className="count">{found.length} email(s) detected, {named} with a name</div>
+          {sample && subjects[0] && (
+            <div className="hint">Preview for {sample.email}: <b>{renderTemplate(subjects[0], sample)}</b></div>
+          )}
         </div>
         <div className="field">
           <label>Attachments (optional, max 3 MB total)</label>
