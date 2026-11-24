@@ -2,16 +2,11 @@ import { NextResponse } from 'next/server';
 
 // Simple password gate (HTTP Basic Auth) so a public Vercel URL can't be used by strangers
 // to send mail from your mailboxes. Set APP_USER and APP_PASSWORD in Vercel env vars.
-// In local dev it is off unless those vars are set.
+// TESTING MODE: if those vars are not set the site is open to anyone. Set them before real use.
 export function middleware(req) {
   const user = process.env.APP_USER;
   const pass = process.env.APP_PASSWORD;
-  if (!user || !pass) {
-    if (process.env.NODE_ENV === 'production') {
-      return new NextResponse('Set APP_USER and APP_PASSWORD environment variables to enable the app.', { status: 503 });
-    }
-    return NextResponse.next();
-  }
+  if (!user || !pass) return NextResponse.next();
   const header = req.headers.get('authorization') || '';
   const [scheme, encoded] = header.split(' ');
   if (scheme === 'Basic' && encoded) {
