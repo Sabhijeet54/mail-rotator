@@ -48,8 +48,27 @@ lib/queue.js           enqueue, round-robin, daily caps, send loop
 middleware.js          password gate
 ```
 
-Built so far: Mailbox Accounts (full), Quick send on Campaigns, Dashboard. Other sidebar modules are placeholders;
-their tables already exist.
+All sidebar modules are built:
+
+- **Contacts** — upload CSV / Excel (.xlsx) with `first_name, last_name, email` (+ company, tags, any extra column),
+  search, tag, edit, export. Names are auto-capitalised.
+- **Campaigns** — recipients from an uploaded file, saved Contacts (by tag) or a pasted list; placeholders
+  `{first_name} {last_name} {name} {email} {company}` and `{{any_column}}`, fallback `{first_name|there}`.
+  Send now, after N minutes/hours/days, or at a date & time. Pause / resume / stop.
+- **Subject rotation** — upload 50–150 subjects (CSV / Excel / TXT, column `subject`). Each mailbox walks the shuffled
+  list from its own offset, so a mailbox never repeats a subject back-to-back and mailboxes don't send the same one at once.
+- **Templates** — saved subject lists and message templates, usable from Campaigns.
+- **Sequences** — follow-ups N days later, same mailbox, same thread ("Re:"), stopped automatically on reply.
+- **Unified Inbox** — replies pulled over IMAP every 5 min (same app password; Gmail needs IMAP enabled), matched to the
+  campaign + person, auto-labelled (interested / meeting / not interested / out of office / unsubscribe), 1–5 star rating,
+  star, reply in-thread. "Unsubscribe" replies and bounces go to the Suppression List.
+- **Scheduled Jobs, Analytics, Suppression List, Account Health, Settings, Activity Logs.**
+
+### Background sending
+
+While any page is open, the app ticks `/api/queue/tick` every 20 s (sends due mail, starts scheduled sends, queues
+follow-ups, checks replies every 5 min). For scheduled sends with the browser closed, create a free cron at
+cron-job.org that calls `https://<your-site>/api/cron/process-queue?key=<CRON_SECRET>` every minute.
 
 ## Notes
 

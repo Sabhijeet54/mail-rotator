@@ -5,7 +5,7 @@ import { PageHeader, StatCard } from '../components/ui';
 export const dynamic = 'force-dynamic';
 
 export default async function Dashboard() {
-  const [mb, out, logs] = await Promise.all([
+  const [mb, out, logs, x] = await Promise.all([
     one(`SELECT count(*)::int AS total,
                 count(*) FILTER (WHERE connection='connected' AND NOT paused)::int AS connected,
                 count(*) FILTER (WHERE connection<>'connected')::int AS attention
@@ -15,6 +15,11 @@ export default async function Dashboard() {
                 count(*) FILTER (WHERE status='failed' AND created_at > now() - interval '1 day')::int AS failed_24h
          FROM outbound_messages`),
     query(`SELECT id, level, message, created_at FROM activity_logs ORDER BY id DESC LIMIT 12`),
+    one(`SELECT (SELECT count(*)::int FROM inbox_messages WHERE received_at > now() - interval '7 days') AS replies_7d,
+                (SELECT count(*)::int FROM inbox_messages WHERE NOT is_read) AS unread,
+                (SELECT count(*)::int FROM campaigns WHERE status = 'scheduled') AS scheduled,
+                (SELECT count(*)::int FROM campaigns WHERE status = 'running') AS running,
+                (SELECT count(*)::int FROM contacts) AS contacts`),
   ]);
 
   return (
@@ -27,6 +32,20 @@ export default async function Dashboard() {
         <StatCard label="Sent today" value={out.sent_today} />
         <StatCard label="Queued" value={out.queued} />
         <StatCard label="Failed (24h)" value={out.failed_24h} tone={out.failed_24h ? 'warn' : ''} />
+        <StatCard label="Replies (7d)" value={x.replies_7d} tone="ok" />
+        <StatCard label="Unread replies" value={x.unread} tone={x.unread ? 'warn' : ''} />
+        <StatCard label="Running / scheduled" value={`${x.running} / ${x.scheduled}`} />
+        <StatCard label="Contacts" value={x.contacts} />
+      </div>
+      <div className="panel">
+        <h2>Quick start</h2>
+        <div className="mini-list">
+          <div><span>1. Add and test your sending mailboxes</span><Link href="/mailboxes">Mailbox Accounts →</Link></div>
+          <div><span>2. Upload people (first name, last name, email) from CSV / Excel</span><Link href="/contacts">Contacts →</Link></div>
+          <div><span>3. Upload 50–150 subject lines so they rotate</span><Link href="/templates">Templates →</Link></div>
+          <div><span>4. Write the message, pick people, send now or schedule</span><Link href="/campaigns">Campaigns →</Link></div>
+          <div><span>5. Read, label, rate and answer replies</span><Link href="/inbox">Unified Inbox{x.unread ? ` (${x.unread} unread)` : ''} →</Link></div>
+        </div>
       </div>
       <div className="panel">
         <h2>Recent activity</h2>

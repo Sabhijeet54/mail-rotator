@@ -1,5 +1,6 @@
 import './globals.css';
 import Sidebar from '../components/Sidebar';
+import QueueTicker from '../components/QueueTicker';
 
 export const metadata = {
   title: 'Mail Rotator',
@@ -13,6 +14,7 @@ export default function RootLayout({ children }) {
         <div className="shell">
           <Sidebar />
           <main className="main">{children}</main>
+          <QueueTicker />
         </div>
       </body>
     </html>

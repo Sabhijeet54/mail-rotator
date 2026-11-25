@@ -1,4 +1,6 @@
 import { route } from '../../../lib/api';
-import { enqueueQuickSend } from '../../../lib/queue';
+import { enqueueSend } from '../../../lib/queue';
 
-export const POST = route(async (req) => enqueueQuickSend(await req.json()));
+export const maxDuration = 60;
+
+export const POST = route(async (req) => enqueueSend(await req.json()));

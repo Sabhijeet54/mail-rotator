@@ -1,7 +1,8 @@
 import { route } from '../../../../lib/api';
-import { processQueue, recordJobRun } from '../../../../lib/queue';
+import { tick } from '../../../../lib/jobs';
 
-// Called every few seconds by the browser while a send screen is open.
+// Called every few seconds by the browser while any page of the app is open.
+export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-export const POST = route(async () => recordJobRun('process-queue', () => processQueue({ budgetMs: 20000 })));
+export const POST = route(async () => tick({ budgetMs: 25000 }));

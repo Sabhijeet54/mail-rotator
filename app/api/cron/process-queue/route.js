@@ -1,14 +1,20 @@
 import { NextResponse } from 'next/server';
-import { processQueue, recordJobRun } from '../../../../lib/queue';
+import { tick } from '../../../../lib/jobs';
 
-// Vercel Cron calls this with "Authorization: Bearer $CRON_SECRET".
+// Called by Vercel Cron ("Authorization: Bearer $CRON_SECRET") or an external pinger such as
+// cron-job.org every minute: /api/cron/process-queue?key=<CRON_SECRET>
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function GET(req) {
-  if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET;
+  const key = new URL(req.url).searchParams.get('key');
+  if (!secret || (req.headers.get('authorization') !== `Bearer ${secret}` && key !== secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const result = await recordJobRun('process-queue', () => processQueue({ budgetMs: 50000 }));
-  return NextResponse.json(result);
+  try {
+    return NextResponse.json(await tick({ budgetMs: 50000, replyEveryMin: 5 }));
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
 }

@@ -239,3 +239,31 @@ CREATE TABLE IF NOT EXISTS settings (
   key    text PRIMARY KEY,
   value  jsonb NOT NULL
 );
+
+-- ============ v0.3 additions ============
+-- Saved subject lists (uploaded from CSV / Excel / text). Rotated per mailbox when sending.
+CREATE TABLE IF NOT EXISTS subject_lists (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        text NOT NULL,
+  subjects    text[] NOT NULL DEFAULT '{}',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Threading for follow-ups and replies sent from the Unified Inbox.
+ALTER TABLE outbound_messages ADD COLUMN IF NOT EXISTS in_reply_to text;
+ALTER TABLE outbound_messages ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'campaign';  -- campaign | followup | reply
+ALTER TABLE inbox_messages ADD COLUMN IF NOT EXISTS rating int;          -- 1..5, set by you
+ALTER TABLE inbox_messages ADD COLUMN IF NOT EXISTS starred boolean NOT NULL DEFAULT false;
+ALTER TABLE inbox_messages ADD COLUMN IF NOT EXISTS replied_by_me_at timestamptz;
+ALTER TABLE inbox_messages ADD COLUMN IF NOT EXISTS uid bigint;
+ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS imap_last_uid bigint;
+ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS imap_error text;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS subject_list_id uuid REFERENCES subject_lists(id) ON DELETE SET NULL;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS total_recipients int NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS cr_email_idx ON campaign_recipients (lower(email));
+CREATE INDEX IF NOT EXISTS om_recipient_idx ON outbound_messages (recipient_id, step_number);
+CREATE INDEX IF NOT EXISTS logs_id_level_idx ON activity_logs (level, id DESC);
+INSERT INTO scheduled_jobs (name, description) VALUES
+  ('start-scheduled', 'Start campaigns whose scheduled time has arrived')
+ON CONFLICT (name) DO NOTHING;
