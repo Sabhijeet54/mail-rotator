@@ -6,7 +6,6 @@ import { api, PageHeader, Field } from '../../components/ui';
 const ENV = [
   ['database', 'Database', 'Set DATABASE_URL (or POSTGRES_URL) in Vercel environment variables.'],
   ['encryptionKey', 'ENCRYPTION_KEY', 'Using an insecure built-in key. Set ENCRYPTION_KEY, then re-add mailboxes.'],
-  ['login', 'Site login (APP_USER / APP_PASSWORD)', 'Site is open to anyone with the link. Set APP_USER and APP_PASSWORD.'],
   ['cronSecret', 'CRON_SECRET', 'Needed for background sending via cron. See Scheduled Jobs.'],
 ];
 

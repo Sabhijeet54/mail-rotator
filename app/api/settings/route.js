@@ -8,7 +8,6 @@ export const GET = route(async () => ({
   env: {
     database: !!(process.env.DATABASE_URL || process.env.POSTGRES_URL),
     encryptionKey: !!process.env.ENCRYPTION_KEY,
-    login: !!(process.env.APP_USER && process.env.APP_PASSWORD),
     cronSecret: !!process.env.CRON_SECRET,
   },
 }));

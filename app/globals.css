@@ -233,3 +233,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .chip.on { background: var(--accent-soft); color: var(--text); border-color: var(--accent); }
 .cat-interested { color: var(--green); } .cat-meeting { color: var(--accent); } .cat-not_interested { color: var(--red); }
 .cat-unsubscribe { color: var(--red); } .cat-ooo { color: var(--yellow); } .cat-none { color: var(--muted); }
+
+/* ---------- login / admin ---------- */
+.me { margin-top: auto; padding: 12px 16px 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.me-email { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-sub { font-size: 11px; color: var(--muted); }
+.me button { align-self: flex-start; }
+.auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.auth-card { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 28px 24px; }
+.auth-card .brand { border: 0; padding: 0 0 18px; }
+.auth-card h1 { margin-bottom: 6px; }
+.auth-card p { color: var(--muted); line-height: 1.6; margin: 0 0 14px; }
+.auth-card button.full { width: 100%; margin-top: 4px; }
+.auth-icon { font-size: 30px; margin-bottom: 10px; }

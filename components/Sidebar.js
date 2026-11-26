@@ -23,7 +23,18 @@ export const NAV = [
 export default function Sidebar() {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const [me, setMe] = useState(null);
   useEffect(() => setOpen(false), [path]);
+  useEffect(() => {
+    fetch('/api/auth/session').then((r) => r.json()).then(setMe).catch(() => {});
+  }, []);
+
+  async function signOut() {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    window.location.href = '/login';
+  }
+
+  const nav = me?.role === 'admin' ? [{ href: '/admin', label: 'Admin Panel', icon: '★' }, ...NAV] : NAV;
 
   return (
     <>
@@ -38,7 +49,7 @@ export default function Sidebar() {
           </div>
         </div>
         <nav>
-          {NAV.map((n) => {
+          {nav.map((n) => {
             const active = n.href === '/' ? path === '/' : path.startsWith(n.href);
             return (
               <Link key={n.href} href={n.href} className={'nav-link' + (active ? ' active' : '')}>
@@ -48,6 +59,15 @@ export default function Sidebar() {
             );
           })}
         </nav>
+        {me?.status === 'ok' && (
+          <div className="me">
+            <div className="me-email" title={me.email}>{me.email}</div>
+            <div className="me-sub">
+              {me.role === 'admin' ? 'Admin' : `Access until ${new Date(me.validUntil).toLocaleDateString()}`}
+            </div>
+            <button className="ghost sm" onClick={signOut}>Log out</button>
+          </div>
+        )}
       </aside>
     </>
   );

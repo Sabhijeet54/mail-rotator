@@ -1,7 +1,7 @@
 import { route } from '../../../../lib/api';
 import { tick } from '../../../../lib/jobs';
 
-// Called every few seconds by the browser while any page of the app is open.
+// Manual trigger. Normally not needed: lib/worker.js runs the same tick inside the server.
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 

@@ -108,14 +108,15 @@ export default function JobsPage() {
       <div className="panel">
         <h2>Run in the background</h2>
         <p className="hint" style={{ fontSize: 12 }}>
-          While any page of this app is open in your browser, it runs these jobs automatically every ~20 seconds.
-          To keep sending scheduled mail and checking replies when your laptop is closed, create a free job at{' '}
-          <a href="https://cron-job.org" target="_blank" rel="noreferrer">cron-job.org</a> that opens this URL every 1 minute
-          (replace <code>&lt;CRON_SECRET&gt;</code> with the value you set in Vercel):
+          The server runs these jobs by itself every few seconds, so mail goes out even when no browser is open.
+          On Render's free plan the server sleeps after ~15 minutes without visits and resumes when it wakes.
+          Optional: to keep it awake, create a free job at{' '}
+          <a href="https://cron-job.org" target="_blank" rel="noreferrer">cron-job.org</a> that opens this URL every 5 minutes
+          (replace <code>&lt;CRON_SECRET&gt;</code> with the value set in Render):
         </p>
         <div className="log" style={{ height: 'auto', marginBottom: 10, wordBreak: 'break-all' }}>{cronUrl}</div>
         {data && !data.cronConfigured && (
-          <span className="pill warn"><span className="dot" />CRON_SECRET env var isn't set on Vercel — add it in Project → Settings → Environment Variables, then redeploy.</span>
+          <span className="pill warn"><span className="dot" />CRON_SECRET isn't set. Only needed for the optional keep-awake job above.</span>
         )}
         {data?.cronConfigured && <span className="pill ok"><span className="dot" />CRON_SECRET is set</span>}
       </div>

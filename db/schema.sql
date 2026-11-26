@@ -267,3 +267,27 @@ CREATE INDEX IF NOT EXISTS logs_id_level_idx ON activity_logs (level, id DESC);
 INSERT INTO scheduled_jobs (name, description) VALUES
   ('start-scheduled', 'Start campaigns whose scheduled time has arrived')
 ON CONFLICT (name) DO NOTHING;
+
+-- ============ v0.4: logins (admin panel) ============
+-- The admin account is fixed in code (lib/auth.js) and is never stored here, so it can't be edited from the app.
+CREATE TABLE IF NOT EXISTS app_users (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email          text NOT NULL,
+  name           text NOT NULL DEFAULT '',
+  password_hash  text NOT NULL,
+  valid_until    timestamptz NOT NULL,             -- login stops working after this
+  disabled       boolean NOT NULL DEFAULT false,   -- admin can revoke access at any time
+  last_login_at  timestamptz,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS app_users_email_uq ON app_users (lower(email));
+
+CREATE TABLE IF NOT EXISTS app_sessions (
+  token_hash  text PRIMARY KEY,                    -- sha256 of the cookie value
+  user_id     uuid REFERENCES app_users(id) ON DELETE CASCADE,   -- NULL = the fixed admin
+  role        text NOT NULL CHECK (role IN ('admin','user')),
+  expires_at  timestamptz NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS app_sessions_user_idx ON app_sessions (user_id);

@@ -111,7 +111,6 @@ export default function CampaignsPage() {
   useEffect(() => {
     if (!campaignId) return;
     let stop = false;
-    let ticking = false;
     const poll = async () => {
       try {
         const p = await api(`/api/campaigns/${campaignId}/progress?after=${lastLog.current}`);
@@ -120,10 +119,6 @@ export default function CampaignsPage() {
           setLogs((prev) => [...prev, ...p.logs].slice(-400));
         }
         setProgress(p);
-        if (p.campaign.status === 'running' && !ticking) {
-          ticking = true;
-          api('/api/queue/tick', { method: 'POST' }).catch(() => {}).finally(() => { ticking = false; });
-        }
         if (!['running', 'scheduled', 'paused'].includes(p.campaign.status)) { loadHistory(); return; }
       } catch (e) {
         setErr(e.message);

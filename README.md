@@ -20,18 +20,17 @@ npm run dev                      # http://localhost:3000
 2. Import the repo in Vercel. Under Settings → Environment Variables add:
    - `DATABASE_URL` — the pooled connection string
    - `ENCRYPTION_KEY` — long random string (`openssl rand -hex 32`). Never change it later: stored SMTP passwords are encrypted with it.
-   - `APP_USER` / `APP_PASSWORD` — login for the site (HTTP Basic Auth). The app refuses to run in production without them.
    - `CRON_SECRET` — random string; Vercel Cron sends it to `/api/cron/process-queue`.
 3. Deploy. `npm run build` applies `db/schema.sql` automatically before building.
 
-## How sending works (no socket.io)
+## How sending works
 
 - Starting a send writes one row per recipient to `outbound_messages`, with `scheduled_at` spaced by the gap.
-- While the Campaigns page is open it calls `POST /api/queue/tick` every 2 s; each tick sends what is due
-  (up to ~20 s of work) and the page polls `/api/campaigns/:id/progress` for the live log.
-- If the page is closed, messages stay queued in Postgres and continue when it's reopened, or when the
-  cron runs. `vercel.json` runs the cron once a day (the Hobby plan limit); on Pro change the schedule to
-  `* * * * *` for fully background sending.
+- `instrumentation.js` starts a background sender (`lib/worker.js`) when the server boots. Every few seconds it
+  sends what is due, starts scheduled campaigns, resets daily caps and checks replies. No browser needs to be open.
+- The Campaigns page only polls `/api/campaigns/:id/progress` for the live log.
+- On Render's free plan the server sleeps after ~15 min without visits; queued mail continues when it wakes.
+  Optional keep-awake: a cron-job.org job hitting `/api/cron/process-queue?secret=<CRON_SECRET>` every 5 minutes.
 - If the assigned mailbox is paused or at its cap, another mailbox of the same send is used; if all are full
   the message waits an hour and retries (caps reset daily).
 - Addresses in the `suppressions` table are skipped automatically.
@@ -45,7 +44,8 @@ db/schema.sql          all tables: mailboxes, contacts, campaigns, sequences, in
                        suppressions, events, scheduled_jobs, activity_logs, settings
 lib/mailboxes.js       add / import / test / update / remove mailboxes
 lib/queue.js           enqueue, round-robin, daily caps, send loop
-middleware.js          password gate
+middleware.js          login gate (sessions); admin account is fixed in lib/auth.js
+app/admin              admin panel: create user logins with a validity period
 ```
 
 All sidebar modules are built:
@@ -76,3 +76,11 @@ cron-job.org that calls `https://<your-site>/api/cron/process-queue?key=<CRON_SE
 - Attachments are limited to 3 MB total (Vercel request body limit is 4.5 MB).
 - Only send to people who expect your mail and include a way to opt out. Rotation doesn't stop providers from blocking
   accounts that send unsolicited bulk mail.
+
+## Logins and admin panel
+
+- Everyone signs in at `/login`. The admin account is fixed in `lib/auth.js` (email + scrypt hash);
+  it is not stored in the database and cannot be changed from the app. Change it only by editing that file.
+- The admin opens **Admin Panel** (`/admin`) to create user logins with a validity in days, extend or
+  shorten it, reset passwords, block, end access now, or delete.
+- When a user's validity ends (or the admin ends it), every page and API call sends them to `/access-expired`.
