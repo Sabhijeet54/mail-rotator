@@ -291,3 +291,4 @@ CREATE TABLE IF NOT EXISTS app_sessions (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS app_sessions_user_idx ON app_sessions (user_id);
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS valid_from timestamptz NOT NULL DEFAULT now();  -- login works from this time

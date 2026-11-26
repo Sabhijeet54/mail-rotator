@@ -10,8 +10,8 @@ export default function AccessExpiredPage() {
       <div className="auth-icon" aria-hidden>🔒</div>
       <h1>Access expired</h1>
       <p>
-        Your access to Mail Rotator has ended. Either your validity period is over or the administrator
-        has withdrawn access to this account.
+        Your access to Mail Rotator is not active right now. Either your validity period has ended, it has
+        not started yet, or the administrator has withdrawn access to this account.
       </p>
       <p>
         To keep using the app, please contact your administrator and ask them to renew your access.

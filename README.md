@@ -81,6 +81,7 @@ cron-job.org that calls `https://<your-site>/api/cron/process-queue?key=<CRON_SE
 
 - Everyone signs in at `/login`. The admin account is fixed in `lib/auth.js` (email + scrypt hash);
   it is not stored in the database and cannot be changed from the app. Change it only by editing that file.
-- The admin opens **Admin Panel** (`/admin`) to create user logins with a validity in days, extend or
-  shorten it, reset passwords, block, end access now, or delete.
-- When a user's validity ends (or the admin ends it), every page and API call sends them to `/access-expired`.
+- The admin only gets the **Admin Panel** (`/admin`): create licence accounts (email + password),
+  set the access period (from date to date), and delete accounts. The admin cannot open the mail features.
+- Users get every mail feature but not the Admin Panel. Outside their access period every page and API call
+  sends them to `/access-expired`.

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-// Login gate. Everyone must sign in at /login. The fixed admin (lib/auth.js) can open /admin
-// to create user logins with a validity period. When a user's validity ends (or the admin
-// revokes it) they are sent to /access-expired.
+// Login gate. Everyone must sign in at /login. The fixed admin (lib/auth.js) only gets /admin,
+// where they create, time-limit and delete user (licence) accounts. Users get all the mail
+// features but not /admin. Outside a user's validity window they are sent to /access-expired.
 //
 // Middleware runs on the Edge runtime and can't use pg, so it asks /api/auth/session
 // and caches the answer for a few seconds per cookie.
@@ -44,8 +44,10 @@ export async function middleware(req) {
     res.cookies.delete(COOKIE);
     return res;
   }
-  if ((pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/api/admin/')) && s.role !== 'admin')
-    return deny(403, '/', 'Admin only.');
+  const adminArea = pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/api/admin/');
+  // The admin only manages licence accounts; the mail features belong to the users.
+  if (adminArea && s.role !== 'admin') return deny(403, '/', 'Admin only.');
+  if (!adminArea && s.role === 'admin') return deny(403, '/admin', 'The admin account only has the Admin Panel.');
   return NextResponse.next();
 }
 

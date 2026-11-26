@@ -34,7 +34,8 @@ export default function Sidebar() {
     window.location.href = '/login';
   }
 
-  const nav = me?.role === 'admin' ? [{ href: '/admin', label: 'Admin Panel', icon: '★' }, ...NAV] : NAV;
+  // The admin only manages licence accounts; users get every mail feature.
+  const nav = me?.role === 'admin' ? [{ href: '/admin', label: 'Admin Panel', icon: '★' }] : me ? NAV : [];
 
   return (
     <>
