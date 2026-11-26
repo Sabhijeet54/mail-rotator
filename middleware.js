@@ -15,7 +15,10 @@ const TTL_MS = 15000;
 async function check(req, token) {
   const hit = cache.get(token);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.data;
-  const res = await fetch(new URL('/api/auth/session', req.url), { headers: { cookie: `${COOKIE}=${token}` } });
+  // Ask the same server over its internal port. Calling the public URL from inside the host
+  // (e.g. Render behind its proxy) does not work reliably.
+  const origin = process.env.PORT ? `http://127.0.0.1:${process.env.PORT}` : req.nextUrl.origin;
+  const res = await fetch(`${origin}/api/auth/session`, { headers: { cookie: `${COOKIE}=${token}` }, cache: 'no-store' });
   const data = await res.json().catch(() => ({ status: 'none' }));
   if (res.ok) {
     if (cache.size > 500) cache.clear();
@@ -37,7 +40,7 @@ export async function middleware(req) {
   if (!token) return deny(401, '/login', 'Please log in.');
 
   let s;
-  try { s = await check(req, token); } catch { s = { status: 'none' }; }
+  try { s = await check(req, token); } catch (e) { console.error('[auth] session check failed:', e?.message); s = { status: 'none' }; }
   if (s.status === 'expired') return deny(403, '/access-expired', 'Your access has expired.');
   if (s.status !== 'ok') {
     const res = deny(401, '/login', 'Please log in.');
