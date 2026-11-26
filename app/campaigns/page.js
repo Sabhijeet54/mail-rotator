@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { extractRecipients } from '../../lib/extract';
-import { renderTemplate, recipientVars, splitSubjects } from '../../lib/render';
+import { renderTemplate, recipientVars, splitSubjects, splitBodies, BODY_SEPARATOR } from '../../lib/render';
 import { api, PageHeader, Field, timeAgo } from '../../components/ui';
-import { readTable, rowsToPeople, rowsToSubjects, downloadText, CONTACTS_SAMPLE, SUBJECTS_SAMPLE } from '../../components/fileparse';
+import { readTable, rowsToPeople, rowsToSubjects, rowsToMessages, downloadText, CONTACTS_SAMPLE, SUBJECTS_SAMPLE, MESSAGES_SAMPLE } from '../../components/fileparse';
 
 // Compose + send. Recipients from an uploaded CSV/Excel file, saved Contacts, or a pasted list.
 // Subjects: one per line (or uploaded / saved list); each mailbox rotates through them.
@@ -56,6 +56,8 @@ export default function CampaignsPage() {
   const lastLog = useRef(0);
 
   const subjects = splitSubjects(subject);
+  const bodies = splitBodies(body);
+  const paired = bodies.length > 1 && bodies.length === subjects.length;
   const pasted = extractRecipients(recipientsText);
   const people = source === 'file' ? (filePeople?.people || []) : source === 'paste' ? pasted : [];
   const contactCount = source === 'contacts'
@@ -161,6 +163,34 @@ export default function CampaignsPage() {
       setSubject(list.join('\n'));
       setSubjectListId('');
       setFlash(`${list.length} subjects loaded from ${f.name}. Click "Save list" to keep them for next time.`);
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
+  // Message upload: .html / .htm / .txt fills the message; CSV / Excel with "subject" and "body"
+  // columns loads every row (subjects into the subject box, bodies as rotating message versions).
+  async function onMessageFile(f) {
+    setErr('');
+    if (!f) return;
+    try {
+      const n = f.name.toLowerCase();
+      if (/\.(html?|txt)$/.test(n)) {
+        const text = (await f.text()).trim();
+        if (!text) throw new Error('This file is empty.');
+        if (body.trim() && !confirm('Replace the current message with this file?')) return;
+        setBody(text);
+        setFormat(n.endsWith('.txt') ? 'text' : 'html');
+        setFlash(`Message loaded from ${f.name}.`);
+        return;
+      }
+      const { subjects: subs, bodies: bods } = rowsToMessages(await readTable(f));
+      if (!bods.length) throw new Error('No messages found in this file.');
+      if ((subject.trim() || body.trim()) && !confirm('Replace the current subjects and message with this file?')) return;
+      setBody(bods.join(BODY_SEPARATOR));
+      if (bods.some((b) => /<[a-z][\s\S]*>/i.test(b))) setFormat('html');
+      if (subs.length) { setSubject(subs.join('\n')); setSubjectListId(''); }
+      setFlash(`${bods.length} message version(s)${subs.length ? ` and ${subs.length} subject(s)` : ''} loaded from ${f.name}.`);
     } catch (e) {
       setErr(e.message);
     }
@@ -334,11 +364,16 @@ export default function CampaignsPage() {
         </div>
 
         <div className="field">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <label>Message</label>
-            <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+            <label style={{ margin: 0 }}>Message {bodies.length > 1 && <b style={{ color: 'var(--accent)' }}>({bodies.length} versions{paired ? ', paired with subjects' : ''})</b>}</label>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <label className="check"><input type="radio" name="fmt" checked={format === 'text'} onChange={() => setFormat('text')} /> Plain text</label>
               <label className="check"><input type="radio" name="fmt" checked={format === 'html'} onChange={() => setFormat('html')} /> HTML</label>
+              <label className="ghost-file">
+                Upload message (HTML / CSV / Excel)
+                <input type="file" accept=".html,.htm,.txt,.csv,.xlsx,.tsv" onChange={(e) => { onMessageFile(e.target.files[0]); e.target.value = ''; }} />
+              </label>
+              <button className="ghost sm" onClick={() => downloadText('messages-template.csv', MESSAGES_SAMPLE)}>Sample</button>
             </div>
           </div>
           <textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)}
@@ -346,6 +381,9 @@ export default function CampaignsPage() {
           <div className="hint">
             Placeholders: <code>{'{first_name}'}</code> <code>{'{last_name}'}</code> <code>{'{name}'}</code> <code>{'{email}'}</code> <code>{'{company}'}</code>,
             any extra file column as <code>{'{{column}}'}</code>. Fallback when empty: <code>{'{first_name|there}'}</code>.
+            <br />Upload an <code>.html</code> file to use it as the message, or a CSV / Excel with <code>subject</code> and <code>body</code> columns
+            to load many at once. Several message versions are separated by a line of <code>=====</code>; each person gets one.
+            If there are as many versions as subjects, row 1's subject goes with row 1's body, and so on.
           </div>
         </div>
       </div>
@@ -412,7 +450,10 @@ export default function CampaignsPage() {
                 <div key={v.email} style={{ flexDirection: 'column', gap: 4 }}>
                   <span className="muted">To: {v.name ? `${v.name} <${v.email}>` : v.email}</span>
                   <b>{renderTemplate(subjects[i % subjects.length], v)}</b>
-                  <span style={{ whiteSpace: 'pre-wrap', color: 'var(--muted)' }}>{renderTemplate(body, v).slice(0, 220)}{body.length > 220 ? '…' : ''}</span>
+                  {(() => {
+                    const b = bodies.length ? bodies[i % bodies.length] : '';
+                    return <span style={{ whiteSpace: 'pre-wrap', color: 'var(--muted)' }}>{renderTemplate(b, v).slice(0, 220)}{b.length > 220 ? '…' : ''}</span>;
+                  })()}
                 </div>
               ))}
             </div>

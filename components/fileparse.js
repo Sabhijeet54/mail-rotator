@@ -134,3 +134,26 @@ export function downloadText(filename, text, type = 'text/csv') {
 
 export const CONTACTS_SAMPLE = 'first_name,last_name,email,company\nRahul,Sharma,rahul.sharma@example.com,Acme Pvt Ltd\nPriya,Verma,priya.verma@example.com,Globex\n';
 export const SUBJECTS_SAMPLE = 'subject\nQuick question, {first_name}\n{first_name}, are you hiring for this role?\nApplication for the open position at {company|your company}\nHi {first_name} - a short note\n';
+
+// rows -> { subjects, bodies } from a sheet with a "subject" column and a "body" / "message" / "html" column.
+// Rows stay in order so subject N and body N can be sent together.
+export function rowsToMessages(rows) {
+  if (!rows.length) return { subjects: [], bodies: [] };
+  const h = rows[0].map((x) => String(x).trim());
+  const si = h.findIndex((x) => /^subjects?(\s*lines?)?$/i.test(x));
+  const bi = h.findIndex((x) => /^(body|bodies|message|messages|html|content|text|email[\s_-]*body|mail[\s_-]*body)$/i.test(x));
+  if (bi < 0) throw new Error('No "body" column found. Use columns named subject and body (download the Sample).');
+  const subjects = [];
+  const bodies = [];
+  for (const r of rows.slice(1)) {
+    const b = String(r[bi] || '').trim();
+    if (!b) continue;
+    bodies.push(b);
+    if (si >= 0) subjects.push(String(r[si] || '').trim());
+  }
+  return { subjects: subjects.filter(Boolean), bodies };
+}
+
+export const MESSAGES_SAMPLE = 'subject,body\n'
+  + '"Quick question, {first_name}","Hi {first_name|there},\n\nI came across {company|your company} and wanted to ask a quick question.\n\nThanks"\n'
+  + '"{first_name}, a short note","<p>Hello {first_name|there},</p><p>Sharing a short note about {company|your company}.</p><p>Regards</p>"\n';
