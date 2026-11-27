@@ -128,7 +128,12 @@ export default function CampaignsPage() {
       if (!stop) setTimeout(poll, progress.campaign?.status === 'scheduled' ? 10000 : 2000);
     };
     poll();
-    return () => { stop = true; };
+    // On serverless hosts (Vercel) there is no background worker, so while this page is open it also
+    // asks the server to send what is due. Harmless where the worker runs: the queue locks each row.
+    const tick = () => api('/api/queue/tick', { method: 'POST' }).catch(() => {});
+    tick();
+    const t = setInterval(tick, 15000);
+    return () => { stop = true; clearInterval(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId]);
 

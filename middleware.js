@@ -17,8 +17,12 @@ async function check(req, token) {
   if (hit && Date.now() - hit.at < TTL_MS) return hit.data;
   // Ask the same server over its internal port. Calling the public URL from inside the host
   // (e.g. Render behind its proxy) does not work reliably.
-  const origin = process.env.PORT ? `http://127.0.0.1:${process.env.PORT}` : req.nextUrl.origin;
-  const res = await fetch(`${origin}/api/auth/session`, { headers: { cookie: `${COOKIE}=${token}` }, cache: 'no-store' });
+  // On Vercel there is no such port, so the public URL is used.
+  const opts = { headers: { cookie: `${COOKIE}=${token}` }, cache: 'no-store' };
+  const internal = process.env.PORT && !process.env.VERCEL ? `http://127.0.0.1:${process.env.PORT}` : null;
+  let res;
+  if (internal) res = await fetch(`${internal}/api/auth/session`, opts).catch(() => null);
+  if (!res) res = await fetch(`${req.nextUrl.origin}/api/auth/session`, opts);
   const data = await res.json().catch(() => ({ status: 'none' }));
   if (res.ok) {
     if (cache.size > 500) cache.clear();
@@ -55,6 +59,6 @@ export async function middleware(req) {
 }
 
 export const config = {
-  // Cron endpoint has its own CRON_SECRET check.
-  matcher: ['/((?!api/cron|_next/static|_next/image|favicon.ico).*)'],
+  // Cron and SMTP relay endpoints have their own secret checks.
+  matcher: ['/((?!api/cron|api/smtp-relay|_next/static|_next/image|favicon.ico).*)'],
 };

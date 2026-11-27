@@ -21,7 +21,23 @@ npm run dev                      # http://localhost:3000
    - `DATABASE_URL` — the pooled connection string
    - `ENCRYPTION_KEY` — long random string (`openssl rand -hex 32`). Never change it later: stored SMTP passwords are encrypted with it.
    - `CRON_SECRET` — random string; Vercel Cron sends it to `/api/cron/process-queue`.
+   - `BACKGROUND_WORKER` is not needed: on Vercel the in-server worker is skipped automatically.
 3. Deploy. `npm run build` applies `db/schema.sql` automatically before building.
+4. Sending on Vercel: serverless functions can't run a background loop, and the Hobby plan allows only a
+   daily Vercel Cron. Create a free cron-job.org job that calls
+   `https://<your-site>/api/cron/process-queue?key=<CRON_SECRET>` every minute. While the Campaigns
+   page is open it also triggers sending every 15 s.
+
+## Render free plan: SMTP relay
+
+Render's free plan blocks outbound SMTP ports 25/465/587, so mailbox tests time out there. To keep the app on
+Render, let a Vercel deployment of this same repo do the SMTP part:
+
+- On Vercel: set `SMTP_RELAY_SECRET` (long random string). This enables `/api/smtp-relay`.
+- On Render: set the same `SMTP_RELAY_SECRET` and `SMTP_RELAY_URL=https://<vercel-site>`.
+
+Render then sends every mailbox test and email over HTTPS to the relay. Vercel limits a request body to
+about 4.5 MB, so large attachments will fail through the relay.
 
 ## How sending works
 
